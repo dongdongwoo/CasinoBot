@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
+import type { Variants } from "framer-motion";
 
 export interface ITypewriterProps {
   delay?: number;
@@ -111,14 +112,14 @@ function SingleTextAnimation({
   );
 }
 
-const cursorVariants = {
+const cursorVariants: Variants = {
   blinking: {
     opacity: [0, 0, 1, 1],
     transition: {
       duration: 1,
       repeat: Infinity,
       repeatDelay: 0,
-      ease: "linear",
+      ease: "linear" as const,
       times: [0, 0.5, 0.5, 1],
     },
   },
