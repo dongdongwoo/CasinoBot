@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "preinstall": "npm config set legacy-peer-deps true",
     "dev": "NODE_ENV=development next dev",
     "build": "NODE_ENV=production next build",
     "start": "NODE_ENV=production next start -p 8080",
@@ -37,7 +38,7 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^16.4.7",
-    "emblor": "^1.4.7",
+    "emblor": "1.4.7",
     "framer-motion": "^12.5.0",
     "globals": "^16.0.0",
     "he": "^1.2.0",
