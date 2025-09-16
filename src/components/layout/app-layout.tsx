@@ -3,10 +3,8 @@
 import Link from "next/link";
 
 import { useRouter, usePathname } from "next/navigation";
-import { AlignJustify } from "lucide-react";
 import { useState } from "react";
 
-import { MobileMenu } from "@/components/sheet/mobile-menu";
 import { APP_ROUTES } from "@/constant/routes";
 import { Separator } from "@/components/ui/separator";
 
