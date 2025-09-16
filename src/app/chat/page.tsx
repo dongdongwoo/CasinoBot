@@ -21,16 +21,37 @@ interface Message {
 
 const CustomLink = ({
   children,
+  href,
   ...props
 }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+  const childText =
+    typeof children === "string"
+      ? children
+      : Array.isArray(children) &&
+          children.length === 1 &&
+          typeof children[0] === "string"
+        ? (children[0] as string)
+        : null;
+
+  const isBareUrl = () => {
+    if (!href) return false;
+    if (!childText) return true;
+    if (childText.trim() === href.trim()) return true;
+    const urlLike = /^(https?:)?\/\//i.test(childText.trim());
+    return urlLike;
+  };
+
+  const display = href && isBareUrl() ? "링크" : children;
+
   return (
     <a
       {...props}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       style={{ textDecorationLine: "underline" }}
     >
-      {children}
+      {display}
     </a>
   );
 };
@@ -46,7 +67,7 @@ export default function ChatPage() {
   const currentAssistantMessageRef = useRef<Message | null>(null);
   const assistantMessageIdRef = useRef<string | null>(null);
   const idleTimeoutRef = useRef<number | null>(null);
-  const lastChunkRef = useRef<string | null>(null);
+  // Removed streaming; keeping reference here no longer needed
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -82,12 +103,6 @@ export default function ChatPage() {
     }
 
     try {
-      // Create new EventSource connection
-      const eventSource = new EventSource(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/jesse-pr-workflow/vector-search/provide-builder-advice-streaming-qna/${encodeURIComponent(input)}`,
-      );
-      eventSourceRef.current = eventSource;
-
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: "",
@@ -99,119 +114,55 @@ export default function ChatPage() {
       assistantMessageIdRef.current = assistantMessage.id;
       setMessages((prev) => [...prev, assistantMessage]);
 
-      // Centralized cleanup to prevent auto-reconnect loops and truncation
-      const finalize = (errorMessage?: string) => {
-        if (errorMessage && !hasReceivedData.current) {
-          setError(errorMessage);
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/jesse-pr-workflow/vector-search/provide-builder-advice-qna`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ question: input }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
+        ? await response.json()
+        : await response.text();
+
+      const fullText =
+        typeof data === "string"
+          ? data
+          : (data.answer ?? data.content ?? data.result ?? data.message ?? "");
+
+      hasReceivedData.current = true;
+      currentAssistantMessageRef.current.content = fullText;
+      setMessages((prev) => {
+        const newMessages = [...prev];
+        const assistantIndex = newMessages.findIndex(
+          (m) => m.id === assistantMessageIdRef.current,
+        );
+        if (assistantIndex !== -1) {
+          const target = newMessages[assistantIndex];
+          newMessages[assistantIndex] = {
+            ...target,
+            content: currentAssistantMessageRef.current?.content || "",
+          };
         }
-        setIsLoading(false);
-        eventSource.close();
-        eventSourceRef.current = null;
-        currentAssistantMessageRef.current = null;
-        assistantMessageIdRef.current = null;
-        lastChunkRef.current = null;
-        if (idleTimeoutRef.current) {
-          clearTimeout(idleTimeoutRef.current);
-          idleTimeoutRef.current = null;
-        }
-      };
-
-      eventSource.onmessage = (event) => {
-        try {
-          const content = event.data;
-          // Handle common end-of-stream sentinels
-          if (
-            content === "[DONE]" ||
-            content === "[done]" ||
-            content === "DONE"
-          ) {
-            finalize();
-            return;
-          }
-          if (content && currentAssistantMessageRef.current) {
-            const trimmed =
-              typeof content === "string"
-                ? content.replace(/\r?\n$/, "")
-                : content;
-
-            // Ignore empty/heartbeat frames and exact duplicate chunks
-            if (!trimmed || trimmed.trim().length === 0) return;
-            if (lastChunkRef.current === trimmed) return;
-
-            const existing = currentAssistantMessageRef.current.content || "";
-            let nextText = existing;
-
-            // Handle servers that resend cumulative snapshots or duplicate frames
-            if (trimmed === existing) {
-              return;
-            }
-            if (trimmed.startsWith(existing)) {
-              nextText = trimmed; // snapshot replaces
-            } else if (existing.startsWith(trimmed)) {
-              return; // older snapshot
-            } else {
-              nextText = existing + trimmed; // delta append
-            }
-
-            // Only if content advanced do we mark as received and reset the idle timer
-            hasReceivedData.current = true;
-            if (idleTimeoutRef.current) {
-              clearTimeout(idleTimeoutRef.current);
-            }
-            idleTimeoutRef.current = window.setTimeout(() => {
-              finalize();
-            }, 30000);
-
-            lastChunkRef.current = trimmed;
-            currentAssistantMessageRef.current.content = nextText;
-            setMessages((prev) => {
-              const newMessages = [...prev];
-              const assistantIndex = newMessages.findIndex(
-                (m) => m.id === assistantMessageIdRef.current,
-              );
-              if (assistantIndex !== -1) {
-                const target = newMessages[assistantIndex];
-                newMessages[assistantIndex] = {
-                  ...target,
-                  content: currentAssistantMessageRef.current?.content || "",
-                };
-              }
-              return newMessages;
-            });
-          }
-        } catch (error) {
-          console.error("Error processing event data:", error);
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        // If we've already received data, close immediately to avoid replay duplicates on auto-reconnect
-        if (hasReceivedData.current) {
-          console.warn(
-            "EventSource error after data; finalizing to avoid duplicate replay",
-            error,
-          );
-          finalize();
-          return;
-        }
-
-        // Before any data is received, allow brief time for auto-reconnect; otherwise, surface error
-        console.error("EventSource error before any data:", error);
-        if (idleTimeoutRef.current) {
-          clearTimeout(idleTimeoutRef.current);
-        }
-        idleTimeoutRef.current = window.setTimeout(() => {
-          finalize("Connection error. Please try again.");
-        }, 8000);
-      };
-
-      // Handle stream completion
-      eventSource.addEventListener("done", () => {
-        finalize();
+        return newMessages;
       });
+
+      setIsLoading(false);
+      currentAssistantMessageRef.current = null;
+      assistantMessageIdRef.current = null;
     } catch (error) {
-      console.error("Error creating EventSource:", error);
-      setError("Failed to connect. Please try again.");
+      console.error("Error fetching answer:", error);
+      setError("Failed to fetch answer. Please try again.");
       setIsLoading(false);
       currentAssistantMessageRef.current = null;
       assistantMessageIdRef.current = null;
