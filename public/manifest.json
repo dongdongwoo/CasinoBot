@@ -1,7 +1,7 @@
 {
-  "name": "Agent Jesse",
-  "short_name": "Agent Jesse",
-  "description": "ai powered Agent Jesse",
+  "name": "Sevenluck Concierge",
+  "short_name": "Sevenluck Concierge",
+  "description": "ai powered Sevenluck Concierge",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

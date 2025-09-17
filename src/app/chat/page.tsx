@@ -41,7 +41,7 @@ const CustomLink = ({
     return urlLike;
   };
 
-  const display = href && isBareUrl() ? "링크" : children;
+  const display = href && isBareUrl() ? "Link" : children;
 
   return (
     <a
@@ -204,7 +204,7 @@ export default function ChatPage() {
                     <Avatar className="size-8">
                       <AvatarImage
                         src="/logo/seven_luck.png"
-                        alt="Agent Jesse"
+                        alt="Sevenluck Concierge"
                       />
                       <AvatarFallback>AI</AvatarFallback>
                     </Avatar>
@@ -241,7 +241,7 @@ export default function ChatPage() {
                     {/* <AvatarFallback>AI</AvatarFallback> */}
                   </Avatar>
                   <p className="px-2 text-base font-semibold text-black/50">
-                    CasinoBot is thinking...
+                    Sevenluck Concierge is thinking...
                   </p>
                 </div>
               </div>

@@ -11,11 +11,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Agent Jesse",
-  description: "ai powered Agent Jesse",
+  title: "Sevenluck Concierge",
+  description: "ai powered Sevenluck Concierge",
   icons: {
-    icon: "/favicon/favicon.ico",
-    apple: "/favicon/apple-touch-icon.png",
+    icon: "/favicon/seven_luck.ico",
+    apple: "/logo/seven_luck.png",
   },
   manifest: "/site.webmanifest.json",
 };
